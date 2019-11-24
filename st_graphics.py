@@ -42,13 +42,13 @@ def st_graphics(medium_font, large_font, small_font, st):
     # Use smaller font if needed to fit
     thought = thought[:170] # max we can fit on display
     if len(thought) > 140:
-        max_chars = 34
+        max_chars = 38
         font = small_font
-        max_glyphs = 34
+        max_glyphs = 38
     else:
-        max_chars = 26
+        max_chars = 28
         font = medium_font
-        max_glyphs = 26
+        max_glyphs = 28
     words = thought.split(' ')
     the_lines = []
     the_line = ""
