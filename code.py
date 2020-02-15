@@ -28,6 +28,7 @@ and Shower Thoughts subreddit.
 import sys
 import time
 import board
+import supervisor
 from adafruit_pyportal import PyPortal
 from adafruit_bitmap_font import bitmap_font
 cwd = ("/"+__file__).rsplit('/', 1)[0] # the current working directory (where this file is)
@@ -37,8 +38,8 @@ import openweather_graphics  # pylint: disable=wrong-import-position
 import st_graphics           # pylint: disable=wrong-import-position
 import market_graphics
 
-linger = 7 # number of seconds to stay on each app
-long_linger = 14 # For apps with more text, like shower thoughts
+linger = 5 # number of seconds to stay on each app
+long_linger = 10 # For apps with more text, like shower thoughts
 
 # Get wifi details and more from a secrets.py file
 try:
@@ -87,6 +88,8 @@ localtime_refresh = None
 weather_refresh = None
 st_refresh = None
 market_refresh = None
+
+# Put all of the continual while loop in a try /except loop, and reboot if error.
 while True:
     # Day, date, and time
      # only query the online time once per hour (and on first run)
@@ -94,11 +97,14 @@ while True:
     try:
         if (not localtime_refresh) or (time.monotonic() - localtime_refresh) > 3600:
             print("Getting time from internet!")
-            pyportal.get_local_time()
+            try:
+                pyportal.get_local_time()
+            except RuntimeError as e:
+                print("unable to get time from the internet - ", e)
             localtime_refresh = time.monotonic()
         text_group = day_graphics.day_graphics(medium_font = medium_font, large_font = large_font)
         pyportal.splash.append(text_group)
-        # Display for seven seconds, then empty the pyportal.splash group so it can be loaded with new display info
+        # Display for linger seconds, then empty the pyportal.splash group so it can be loaded with new display info
         time.sleep(linger)
     except RuntimeError as e:
         print("Some error occured,  skipping this iteration! -", e)
@@ -111,7 +117,7 @@ while True:
     # Display weather
     # only query the weather every 10 minutes (and on first run)
     pyportal.set_background(cwd+"/wx_bitmap.bmp")
-    time.sleep(2)
+    time.sleep(1)
     try:
         if (not weather_refresh) or (time.monotonic() - weather_refresh) > 600:
             wx = pyportal.fetch(WX_DATA_SOURCE)
@@ -121,8 +127,8 @@ while True:
             large_font = large_font, small_font = small_font, weather = wx)
         pyportal.set_background(cwd+background_file)
         pyportal.splash.append(text_group)
-        # Display for 14 seconds, then empty the pyportal.splash group so it can be loaded with new display info
-        time.sleep(long_linger)
+        # Display for linger seconds, then empty the pyportal.splash group so it can be loaded with new display info
+        time.sleep(linger)
     except RuntimeError as e:
         print("Some error occured, skipping this iteration! -", e)
         continue
@@ -131,7 +137,7 @@ while True:
     # Display Reddit Shower Thoughts
     # only query shower thoughts every 5 minutes (and on first run)
     pyportal.set_background(cwd+"/st_bitmap.bmp")
-    time.sleep(2)
+    time.sleep(1)
     try:
         if (not st_refresh) or (time.monotonic() - st_refresh) > 300:
             print("Getting shower thought from internet!")
@@ -141,7 +147,7 @@ while True:
         text_group = st_graphics.st_graphics(medium_font = medium_font, large_font = large_font,
             small_font = small_font, st = st)
         pyportal.splash.append(text_group)
-        # Display for 14 seconds, then empty the pyportal.splash group so it can be loaded with new display info
+        # Display for long_linger seconds, then empty the pyportal.splash group so it can be loaded with new display info
         time.sleep(long_linger)
     except RuntimeError as e:
         print("Some error occured,  skipping this iteration! -", e)
@@ -151,7 +157,7 @@ while True:
     # Display S&P 500
     # only query the S&P every 10 minutes (and on first run)
     pyportal.set_background(cwd+"/market_bitmap.bmp")
-    time.sleep(2)
+    time.sleep(1)
     try:
         if (not market_refresh) or (time.monotonic() - market_refresh) > 300:
             print("Getting S&P 500 from internet!")
@@ -162,7 +168,7 @@ while True:
             market = market)
         pyportal.set_background(cwd+background_file)
         pyportal.splash.append(text_group)
-        # Display for 7 seconds, then empty the pyportal.splash group so it can be loaded with new display info
+        # Display for linger seconds, then empty the pyportal.splash group so it can be loaded with new display info
         time.sleep(linger)
     except RuntimeError as e:
         print("Some error occured,  skipping this iteration! -", e)
