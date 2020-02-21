@@ -27,6 +27,7 @@ and Shower Thoughts subreddit.
 """
 import sys
 import time
+import microcontroller
 import board
 import supervisor
 from adafruit_pyportal import PyPortal
@@ -89,7 +90,6 @@ weather_refresh = None
 st_refresh = None
 market_refresh = None
 
-# Put all of the continual while loop in a try /except loop, and reboot if error.
 while True:
     # Day, date, and time
      # only query the online time once per hour (and on first run)
@@ -120,7 +120,12 @@ while True:
     time.sleep(1)
     try:
         if (not weather_refresh) or (time.monotonic() - weather_refresh) > 600:
-            wx = pyportal.fetch(WX_DATA_SOURCE)
+            try:
+                wx = pyportal.fetch(WX_DATA_SOURCE)
+            except RuntimeError as e:
+                if e == "Failed to request hostname":
+                    print("Error: ", e, "doing hardware reset")
+                    microcontroller.reset()
             print("Response is", wx)
             weather_refresh = time.monotonic()
         text_group, background_file = openweather_graphics.wx_graphics(medium_font = medium_font,
@@ -141,13 +146,18 @@ while True:
     try:
         if (not st_refresh) or (time.monotonic() - st_refresh) > 300:
             print("Getting shower thought from internet!")
-            st = pyportal.fetch(ST_DATA_SOURCE)
+            try:
+                st = pyportal.fetch(ST_DATA_SOURCE)
+            except RuntimeError as e:
+                if e == "Failed to request hostname":
+                    print("Error: ", e, "Doing hardware reset")
+                    microcontroller.reset()
             print("Response is", st)
             st_refresh = time.monotonic()
         text_group = st_graphics.st_graphics(medium_font = medium_font, large_font = large_font,
             small_font = small_font, st = st)
         pyportal.splash.append(text_group)
-        # Display for long_linger seconds, then empty the pyportal.splash group so it can be loaded with new display info
+        # Display for long_linger seconds
         time.sleep(long_linger)
     except RuntimeError as e:
         print("Some error occured,  skipping this iteration! -", e)
@@ -163,6 +173,8 @@ while True:
             print("Getting S&P 500 from internet!")
             market = pyportal.fetch(MARKET_DATA_SOURCE)
             print("Response is", market)
+            if market == '':
+                raise ValueError('empty string returned')
             market_refresh = time.monotonic()
         text_group, background_file = market_graphics.market_graphics(medium_font = medium_font, large_font = large_font,
             market = market)
@@ -170,7 +182,10 @@ while True:
         pyportal.splash.append(text_group)
         # Display for linger seconds, then empty the pyportal.splash group so it can be loaded with new display info
         time.sleep(linger)
-    except RuntimeError as e:
+    except Exception as e:
         print("Some error occured,  skipping this iteration! -", e)
         continue
+#    except ValueError as e:
+#        print("Some error occured,  skipping this iteration! -", e)
+#        continue
     pyportal.splash.pop()

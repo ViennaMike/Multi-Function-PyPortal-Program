@@ -34,21 +34,22 @@ def st_graphics(medium_font, large_font, small_font, st):
     the API
     """
     text_group = displayio.Group(max_size = 6)
-
     st = json.loads(st)
     thought = st['data']['children'][0]['data']['title']
     print(thought)
     # Split into multiple lines (based on pyportal's wrap_nicely method)
     # Use smaller font if needed to fit
-    thought = thought[:170] # max we can fit on display
+    print("length: ",len(thought))
     if len(thought) > 140:
         max_chars = 38
         font = small_font
         max_glyphs = 38
+        print("using small font")
     else:
         max_chars = 28
         font = medium_font
         max_glyphs = 28
+        print("using medium font")
     words = thought.split(' ')
     the_lines = []
     the_line = ""
@@ -62,12 +63,11 @@ def st_graphics(medium_font, large_font, small_font, st):
         the_lines.append(the_line)
     # remove first space from first line:
     the_lines[0] = the_lines[0][1:]
-
     for idx, line in enumerate(the_lines):
         thought_text = Label(font, line_spacing = 1.2, max_glyphs = max_glyphs)
         thought_text.x = 15
-        thought_text.y = 110 + (idx * 24)
         thought_text.color = 0xFFFFFF
+        thought_text.y = 110 + (idx * 24)
         thought_text.text = line
         text_group.append(thought_text)
     return(text_group)
