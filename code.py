@@ -20,6 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+# Version 1.2 5/21/2020 Restructured and added control over ordering, so, for example,
+#     can interleave apps, such as time, weather, time, shower thoughts, time, S&P
 # Version 1.1 5/20/2020. Replaced Alpha Vantage as source for S&P 500 Data with
 # Finnhub, since AV stopped providing S&P index via their free API.
 
@@ -94,100 +96,88 @@ weather_refresh = None
 st_refresh = None
 market_refresh = None
 
+# Set up an ordering list, so it's easy to add new apps (memory permitting) or change their order, or
+# repeat an app in the order
+order = [0, 1, 0, 2, 0, 3]
+index = 0
 while True:
-    # Day, date, and time
-     # only query the online time once per hour (and on first run)
-    pyportal.set_background(cwd+"/day_bitmap.bmp")
     try:
-        if (not localtime_refresh) or (time.monotonic() - localtime_refresh) > 3600:
-            print("Getting time from internet!")
-            try:
-                pyportal.get_local_time()
-            except RuntimeError as e:
-                print("unable to get time from the internet - ", e)
-            localtime_refresh = time.monotonic()
-        text_group = day_graphics.day_graphics(medium_font = medium_font, large_font = large_font)
-        pyportal.splash.append(text_group)
-        # Display for linger seconds, then empty the pyportal.splash group so it can be loaded with new display info
-        time.sleep(linger)
-    except RuntimeError as e:
-        print("Some error occured,  skipping this iteration! -", e)
-        continue
-    pyportal.splash.pop()
-
-    # While there are some differences, could probably refactor the three segments
-    # below into one function call
-
-    # Display weather
-    # only query the weather every 10 minutes (and on first run)
-    pyportal.set_background(cwd+"/wx_bitmap.bmp")
-    time.sleep(1)
-    try:
-        if (not weather_refresh) or (time.monotonic() - weather_refresh) > 600:
-            try:
-                wx = pyportal.fetch(WX_DATA_SOURCE)
-            except RuntimeError as e:
-                if e == "Failed to request hostname":
-                    print("Error: ", e, "doing hardware reset")
-                    microcontroller.reset()
-            print("Response is", wx)
-            weather_refresh = time.monotonic()
-        text_group, background_file = openweather_graphics.wx_graphics(medium_font = medium_font,
-            large_font = large_font, small_font = small_font, weather = wx)
-        pyportal.set_background(cwd+background_file)
-        pyportal.splash.append(text_group)
-        # Display for linger seconds, then empty the pyportal.splash group so it can be loaded with new display info
-        time.sleep(linger)
-    except RuntimeError as e:
-        print("Some error occured,  skipping this iteration! -", e)
-        continue
-    pyportal.splash.pop()
-
-    # Display Reddit Shower Thoughts
-    # only query shower thoughts every 5 minutes (and on first run)
-    pyportal.set_background(cwd+"/st_bitmap.bmp")
-    time.sleep(1)
-    try:
-        if (not st_refresh) or (time.monotonic() - st_refresh) > 300:
-            print("Getting shower thought from internet!")
-            try:
-                st = pyportal.fetch(ST_DATA_SOURCE)
-            except RuntimeError as e:
-                if e == "Failed to request hostname":
-                    print("Error: ", e, "Doing hardware reset")
-                    microcontroller.reset()
-            print("Response is", st)
-            st_refresh = time.monotonic()
-        text_group = st_graphics.st_graphics(medium_font = medium_font, large_font = large_font,
-            small_font = small_font, st = st)
-        pyportal.splash.append(text_group)
-        # Display for long_linger seconds
-        time.sleep(long_linger)
-    except RuntimeError as e:
-        print("Some error occured,  skipping this iteration! -", e)
-        traceback.print_exc()
-        continue
-    pyportal.splash.pop()
-
-    # Display S&P 500
-    # only query the S&P every 10 minutes (and on first run)
-    pyportal.set_background(cwd+"/market_bitmap.bmp")
-    time.sleep(1)
-    try:
-        if (not market_refresh) or (time.monotonic() - market_refresh) > 300:
-            print("Getting S&P 500 from internet!")
-            market = pyportal.fetch(MARKET_DATA_SOURCE)
-            print("Response is", market)
-            if market == '':
-                raise ValueError('empty string returned')
-            market_refresh = time.monotonic()
-        text_group, background_file = market_graphics.market_graphics(medium_font = medium_font, large_font = large_font,
-            market = market)
-        pyportal.set_background(cwd+background_file)
-        pyportal.splash.append(text_group)
-        # Display for linger seconds, then empty the pyportal.splash group so it can be loaded with new display info
-        time.sleep(linger)
+        print('index = ',index, 'order[index] = ',order[index])
+        if order[index] == 0:
+            # Day, date, and time. Only query the online time once per hour (and on first run).
+            pyportal.set_background(cwd+"/day_bitmap.bmp")
+            if (not localtime_refresh) or (time.monotonic() - localtime_refresh) > 3600:
+                print("Getting time from internet!")
+                try:
+                    pyportal.get_local_time()
+                except RuntimeError as e:
+                    print("unable to get time from the internet - ", e)
+                localtime_refresh = time.monotonic()
+            text_group = day_graphics.day_graphics(medium_font = medium_font, large_font = large_font)
+            pyportal.splash.append(text_group)
+            # Display for linger seconds, then empty the pyportal.splash group so it can be loaded with new display info
+            time.sleep(linger)
+        elif order[index] == 1:
+            #Display weather: only query the weather every 10 minutes (and on first run)."""
+            pyportal.set_background(cwd+"/wx_bitmap.bmp")
+            time.sleep(1)
+            if (not weather_refresh) or (time.monotonic() - weather_refresh) > 600:
+                try:
+                    wx = pyportal.fetch(WX_DATA_SOURCE)
+                except RuntimeError as e:
+                    if e == "Failed to request hostname":
+                        print("Error: ", e, "doing hardware reset")
+                        microcontroller.reset()
+                print("Response is", wx)
+                weather_refresh = time.monotonic()
+            text_group, background_file = openweather_graphics.wx_graphics(medium_font = medium_font,
+                                large_font = large_font, small_font = small_font, weather = wx)
+            pyportal.set_background(cwd+background_file)
+            pyportal.splash.append(text_group)
+            # Display for linger seconds
+            time.sleep(linger)
+        elif order[index] == 2:
+            # Display Reddit Shower Thoughts. Only query shower thoughts every 5 minutes (and on first run)."""
+            pyportal.set_background(cwd+"/st_bitmap.bmp")
+            time.sleep(1)
+            if (not st_refresh) or (time.monotonic() - st_refresh) > 300:
+                print("Getting shower thought from internet!")
+                try:
+                    st = pyportal.fetch(ST_DATA_SOURCE)
+                except RuntimeError as e:
+                    if e == "Failed to request hostname":
+                        print("Error: ", e, "Doing hardware reset")
+                        microcontroller.reset()
+                print("Response is", st)
+                st_refresh = time.monotonic()
+            text_group = st_graphics.st_graphics(medium_font = medium_font, large_font = large_font,
+                    small_font = small_font, st = st)
+            pyportal.splash.append(text_group)
+            # Display for long_linger seconds
+            time.sleep(long_linger)
+        elif order[index] == 3:
+            """Display S&P 500. Only query the S&P every 10 minutes (and on first run)."""
+            pyportal.set_background(cwd+"/market_bitmap.bmp")
+            time.sleep(1)
+            if (not market_refresh) or (time.monotonic() - market_refresh) > 300:
+                print("Getting S&P 500 from internet!")
+                market = pyportal.fetch(MARKET_DATA_SOURCE)
+                print("Response is", market)
+                if market == '':
+                    raise ValueError('empty string returned')
+                market_refresh = time.monotonic()
+            text_group, background_file = market_graphics.market_graphics(medium_font = medium_font, large_font = large_font,
+                                    market = market)
+            pyportal.set_background(cwd+background_file)
+            pyportal.splash.append(text_group)
+            # Display for linger seconds, then empty the pyportal.splash group so it can be loaded with new display info
+            time.sleep(linger)
+        else:
+            raise ValueError("app index set to invalid value")
+        #Empty the pyportal.splash group so it can be loaded with new display info
+        pyportal.splash.pop()
+        index = (index+1)%(len(order))
     except Exception as e:
         print("Some error occured,  skipping this iteration! -", e)
+        index = (index+1)%(len(order))
         continue
-    pyportal.splash.pop()
