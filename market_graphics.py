@@ -20,6 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+# Version 1.1, 5/21/2020. Revised processing of json to match format of new feed
+
 import time
 import json
 import displayio
@@ -46,25 +48,20 @@ def market_graphics(medium_font, large_font, market):
     sub_text.y = 120
     text_group.append(sub_text)
 
-    price = market['Global Quote']['05. price']
-    price = price[:-2]   # only want 2 decimal points
-    change = market['Global Quote']['09. change']
-    change = change[:-2]   # only want two decimal points
-    percent = market['Global Quote']['10. change percent']
-    l = len(percent)-3
-    percent = percent[:l] + percent[-1]  # only want two decimal points
+    price = market['c']
+    prev_close = market['pc']
+    change = round(price - prev_close, 2)
+    percent = round((change / prev_close), 2)
     print(price, change, percent)
 
-    main_text.text = price
-    sub_text.text = change + '  (' + percent + ')'
+    main_text.text = str(price)
+    sub_text.text = str(change) + '  (' + str(percent) + ')'
 
     # set the background and color of change
-    if float(change) >= 0:
+    if change >= 0:
         background_file = "/icons/green_up.bmp"
         sub_text.color = 0x00FF00
     else:
         background_file = "/icons/red_down.bmp"
         sub_text.color = 0xFF0000
     return (text_group, background_file)
-
-

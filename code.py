@@ -20,6 +20,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+# Version 1.1 5/20/2020. Replaced Alpha Vantage as source for S&P 500 Data with
+# Finnhub, since AV stopped providing S&P index via their free API.
+
 """
 This is the main program for a multi-function Portal app.
 It includes current weather, day, date, time, S&P 500, Indoor Temp,
@@ -30,6 +33,7 @@ import time
 import microcontroller
 import board
 import supervisor
+import json
 from adafruit_pyportal import PyPortal
 from adafruit_bitmap_font import bitmap_font
 cwd = ("/"+__file__).rsplit('/', 1)[0] # the current working directory (where this file is)
@@ -78,8 +82,8 @@ WX_DATA_SOURCE = "https://api.openweathermap.org/data/2.5/weather?id="+LOCATION
 WX_DATA_SOURCE += "&appid="+secrets['openweather_token']
 
 # S&P 500 ("Market Data") info
-MARKET_DATA_SOURCE = "https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=INX"
-MARKET_DATA_SOURCE += "&apikey="+secrets['alpha_advantage_key']
+MARKET_DATA_SOURCE = "https://finnhub.io/api/v1/quote?symbol=%5EGSPC"
+MARKET_DATA_SOURCE += "&token="+secrets['finnhub_token']
 
 # Shower thoughts info
 ST_DATA_SOURCE = "https://www.reddit.com/r/Showerthoughts/new.json?sort=new&limit=1"
@@ -135,7 +139,7 @@ while True:
         # Display for linger seconds, then empty the pyportal.splash group so it can be loaded with new display info
         time.sleep(linger)
     except RuntimeError as e:
-        print("Some error occured, skipping this iteration! -", e)
+        print("Some error occured,  skipping this iteration! -", e)
         continue
     pyportal.splash.pop()
 
@@ -161,6 +165,7 @@ while True:
         time.sleep(long_linger)
     except RuntimeError as e:
         print("Some error occured,  skipping this iteration! -", e)
+        traceback.print_exc()
         continue
     pyportal.splash.pop()
 
@@ -185,7 +190,4 @@ while True:
     except Exception as e:
         print("Some error occured,  skipping this iteration! -", e)
         continue
-#    except ValueError as e:
-#        print("Some error occured,  skipping this iteration! -", e)
-#        continue
     pyportal.splash.pop()
