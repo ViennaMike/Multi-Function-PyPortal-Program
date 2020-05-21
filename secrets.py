@@ -10,5 +10,5 @@ secrets = {
     'aio_username' : 'YOUR USERNAME FOR ADAFRUIT AIO', #See learning guide at https://learn.adafruit.com/welcome-to-adafruit-io
     'aio_key' : 'YOUR KEY FOR AIO',
     'openweather_token' : 'YOUR OPENWEATHER TOKEN',   # see https://openweathermap.org/api
-    'alpha_advantage_key' : 'YOUR ALPHA ADVANTAGE KEY'   #https://www.alphavantage.co/
+    'finnhub_token' : 'YOUR FinnHub token'   #https://finnhub.io/
     }
