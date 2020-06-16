@@ -51,11 +51,11 @@ def market_graphics(medium_font, large_font, market):
     price = market['c']
     prev_close = market['pc']
     change = round(price - prev_close, 2)
-    percent = round((change / prev_close), 2)
+    percent = round((100 * change / prev_close), 2)
     print(price, change, percent)
 
     main_text.text = str(price)
-    sub_text.text = str(change) + '  (' + str(percent) + ')'
+    sub_text.text = str(change) + '  (' + str(percent) + '%)'
 
     # set the background and color of change
     if change >= 0:

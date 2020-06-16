@@ -91,10 +91,10 @@ MARKET_DATA_SOURCE += "&token="+secrets['finnhub_token']
 ST_DATA_SOURCE = "https://www.reddit.com/r/Showerthoughts/new.json?sort=new&limit=1"
 
 # Loop through all the applications
-localtime_refresh = None
-weather_refresh = None
-st_refresh = None
-market_refresh = None
+localtime_refresh = 0
+weather_refresh = 0
+st_refresh = 0
+market_refresh = 0
 
 # Set up an ordering list, so it's easy to add new apps (memory permitting) or change their order, or
 # repeat an app in the order
@@ -106,7 +106,8 @@ while True:
         if order[index] == 0:
             # Day, date, and time. Only query the online time once per hour (and on first run).
             pyportal.set_background(cwd+"/day_bitmap.bmp")
-            if (not localtime_refresh) or (time.monotonic() - localtime_refresh) > 3600:
+            if (time.monotonic() - localtime_refresh) > 3600:
+                localtime_refresh = time.monotonic
                 print("Getting time from internet!")
                 try:
                     pyportal.get_local_time()
@@ -121,7 +122,8 @@ while True:
             #Display weather: only query the weather every 10 minutes (and on first run)."""
             pyportal.set_background(cwd+"/wx_bitmap.bmp")
             time.sleep(1)
-            if (not weather_refresh) or (time.monotonic() - weather_refresh) > 600:
+            if (time.monotonic() - weather_refresh) > 600:
+                weather_refresh = time.monotonic()
                 try:
                     wx = pyportal.fetch(WX_DATA_SOURCE)
                 except RuntimeError as e:
@@ -140,7 +142,8 @@ while True:
             # Display Reddit Shower Thoughts. Only query shower thoughts every 5 minutes (and on first run)."""
             pyportal.set_background(cwd+"/st_bitmap.bmp")
             time.sleep(1)
-            if (not st_refresh) or (time.monotonic() - st_refresh) > 300:
+            if (time.monotonic() - st_refresh) > 300:
+                st_refresh = time.monotonic()
                 print("Getting shower thought from internet!")
                 try:
                     st = pyportal.fetch(ST_DATA_SOURCE)
@@ -159,7 +162,8 @@ while True:
             """Display S&P 500. Only query the S&P every 10 minutes (and on first run)."""
             pyportal.set_background(cwd+"/market_bitmap.bmp")
             time.sleep(1)
-            if (not market_refresh) or (time.monotonic() - market_refresh) > 300:
+            if (time.monotonic() - market_refresh) > 300:
+                market_refresh = time.monotonic()
                 print("Getting S&P 500 from internet!")
                 market = pyportal.fetch(MARKET_DATA_SOURCE)
                 print("Response is", market)
