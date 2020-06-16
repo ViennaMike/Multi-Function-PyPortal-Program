@@ -38,15 +38,15 @@ import supervisor
 import json
 from adafruit_pyportal import PyPortal
 from adafruit_bitmap_font import bitmap_font
-cwd = ("/"+__file__).rsplit('/', 1)[0] # the current working directory (where this file is)
+cwd = ("/"+__file__).rsplit('/', 1)[0]  # the current working directory (where this file is)
 sys.path.append(cwd)
 import day_graphics          # pylint: disable=wrong-import-position
 import openweather_graphics  # pylint: disable=wrong-import-position
 import st_graphics           # pylint: disable=wrong-import-position
 import market_graphics
 
-linger = 5 # number of seconds to stay on each app
-long_linger = 10 # For apps with more text, like shower thoughts
+linger = 5  # number of seconds to stay on each app
+long_linger = 10  # For apps with more text, like shower thoughts
 
 # Get wifi details and more from a secrets.py file
 try:
@@ -77,7 +77,7 @@ large_font.load_glyphs(('°',))  # a non-ascii character we need for sure
 # Weather info
 # Use cityname, country code where countrycode is ISO3166 format.
 # E.g. "New York, US" or "London, GB" OR use Location Code
-LOCATION = "4791160" #Vienna, VA
+LOCATION = "4791160"  # Vienna, VA
 # Set up where we'll be fetching data from
 # You'll need to get a token from openweather.org, looks like 'b6907d289e10d714a6e88b30761fae22'
 WX_DATA_SOURCE = "https://api.openweathermap.org/data/2.5/weather?id="+LOCATION
@@ -106,23 +106,22 @@ while True:
         if order[index] == 0:
             # Day, date, and time. Only query the online time once per hour (and on first run).
             pyportal.set_background(cwd+"/day_bitmap.bmp")
-            if (time.monotonic() - localtime_refresh) > 3600:
-                localtime_refresh = time.monotonic
+            if (localtime_refresh == 0) or (time.monotonic() - localtime_refresh) > 3600:
                 print("Getting time from internet!")
                 try:
                     pyportal.get_local_time()
                 except RuntimeError as e:
                     print("unable to get time from the internet - ", e)
-                localtime_refresh = time.monotonic()
+            localtime_refresh = time.monotonic()
             text_group = day_graphics.day_graphics(medium_font = medium_font, large_font = large_font)
             pyportal.splash.append(text_group)
             # Display for linger seconds, then empty the pyportal.splash group so it can be loaded with new display info
             time.sleep(linger)
         elif order[index] == 1:
-            #Display weather: only query the weather every 10 minutes (and on first run)."""
+            # Display weather: only query the weather every 10 minutes (and on first run)."""
             pyportal.set_background(cwd+"/wx_bitmap.bmp")
             time.sleep(1)
-            if (time.monotonic() - weather_refresh) > 600:
+            if (weather_refresh == 0) or (time.monotonic() - weather_refresh) > 600:
                 weather_refresh = time.monotonic()
                 try:
                     wx = pyportal.fetch(WX_DATA_SOURCE)
@@ -131,7 +130,6 @@ while True:
                         print("Error: ", e, "doing hardware reset")
                         microcontroller.reset()
                 print("Response is", wx)
-                weather_refresh = time.monotonic()
             text_group, background_file = openweather_graphics.wx_graphics(medium_font = medium_font,
                                 large_font = large_font, small_font = small_font, weather = wx)
             pyportal.set_background(cwd+background_file)
@@ -142,7 +140,7 @@ while True:
             # Display Reddit Shower Thoughts. Only query shower thoughts every 5 minutes (and on first run)."""
             pyportal.set_background(cwd+"/st_bitmap.bmp")
             time.sleep(1)
-            if (time.monotonic() - st_refresh) > 300:
+            if (st_refresh == 0) or (time.monotonic() - st_refresh) > 300:
                 st_refresh = time.monotonic()
                 print("Getting shower thought from internet!")
                 try:
@@ -152,7 +150,6 @@ while True:
                         print("Error: ", e, "Doing hardware reset")
                         microcontroller.reset()
                 print("Response is", st)
-                st_refresh = time.monotonic()
             text_group = st_graphics.st_graphics(medium_font = medium_font, large_font = large_font,
                     small_font = small_font, st = st)
             pyportal.splash.append(text_group)
@@ -162,14 +159,13 @@ while True:
             """Display S&P 500. Only query the S&P every 10 minutes (and on first run)."""
             pyportal.set_background(cwd+"/market_bitmap.bmp")
             time.sleep(1)
-            if (time.monotonic() - market_refresh) > 300:
+            if (market_refresh == 0) or (time.monotonic() - market_refresh) > 300:
                 market_refresh = time.monotonic()
                 print("Getting S&P 500 from internet!")
                 market = pyportal.fetch(MARKET_DATA_SOURCE)
                 print("Response is", market)
                 if market == '':
                     raise ValueError('empty string returned')
-                market_refresh = time.monotonic()
             text_group, background_file = market_graphics.market_graphics(medium_font = medium_font, large_font = large_font,
                                     market = market)
             pyportal.set_background(cwd+background_file)
@@ -178,7 +174,7 @@ while True:
             time.sleep(linger)
         else:
             raise ValueError("app index set to invalid value")
-        #Empty the pyportal.splash group so it can be loaded with new display info
+        # Empty the pyportal.splash group so it can be loaded with new display info
         pyportal.splash.pop()
         index = (index+1)%(len(order))
     except Exception as e:
