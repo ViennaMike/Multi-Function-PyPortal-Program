@@ -112,7 +112,7 @@ while True:
                     pyportal.get_local_time()
                 except RuntimeError as e:
                     print("unable to get time from the internet - ", e)
-            localtime_refresh = time.monotonic()
+                localtime_refresh = time.monotonic()
             text_group = day_graphics.day_graphics(medium_font = medium_font, large_font = large_font)
             pyportal.splash.append(text_group)
             # Display for linger seconds, then empty the pyportal.splash group so it can be loaded with new display info
