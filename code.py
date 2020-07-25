@@ -84,7 +84,8 @@ WX_DATA_SOURCE = "https://api.openweathermap.org/data/2.5/weather?id="+LOCATION
 WX_DATA_SOURCE += "&appid="+secrets['openweather_token']
 
 # S&P 500 ("Market Data") info
-MARKET_DATA_SOURCE = "https://finnhub.io/api/v1/quote?symbol=%5EGSPC"
+# MARKET_DATA_SOURCE = "https://finnhub.io/api/v1/quote?symbol=%5EGSPC"
+MARKET_DATA_SOURCE = "https://finnhub.io/api/v1/quote?symbol=SPY"
 MARKET_DATA_SOURCE += "&token="+secrets['finnhub_token']
 
 # Shower thoughts info
@@ -100,6 +101,12 @@ market_refresh = 0
 # repeat an app in the order
 order = [0, 1, 0, 2, 0, 3]
 index = 0
+"""
+Occassionally, seemingly at randome, get errors like:
+"unable to get time from the internet -  Failed to request hostname"
+So put in an error counter, if happens 5 times, reset the device.
+"""
+error_counter = 0
 while True:
     try:
         print('index = ',index, 'order[index] = ',order[index])
@@ -110,9 +117,15 @@ while True:
                 print("Getting time from internet!")
                 try:
                     pyportal.get_local_time()
+                    localtime_refresh = time.monotonic()
+                    error_counter=0
                 except RuntimeError as e:
                     print("unable to get time from the internet - ", e)
-                localtime_refresh = time.monotonic()
+                    localtime_refresh = 0
+                    error_counter+=1
+                    if error_counter >= 3:
+                        print("failed 3 times in a row, doing hardware reset")
+                        microcontroller.reset()
             text_group = day_graphics.day_graphics(medium_font = medium_font, large_font = large_font)
             pyportal.splash.append(text_group)
             # Display for linger seconds, then empty the pyportal.splash group so it can be loaded with new display info

@@ -48,8 +48,8 @@ def market_graphics(medium_font, large_font, market):
     sub_text.y = 120
     text_group.append(sub_text)
 
-    price = market['c']
-    prev_close = market['pc']
+    price = market['c'] * 10 + 7   # Convert SPY ETF to S&P (about 10x)
+    prev_close = market['pc'] * 10 + 7  # Convert SPY ETF to S&P (about 10x)
     change = round(price - prev_close, 2)
     percent = round((100 * change / prev_close), 2)
     print(price, change, percent)
