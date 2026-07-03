@@ -21,59 +21,59 @@
 # THE SOFTWARE.
 
 import time
-#import json
 import displayio
 from adafruit_display_text.label import Label
-from adafruit_bitmap_font import bitmap_font
 
-# cwd = ("/"+__file__).rsplit('/', 1)[0] # the current working directory (where this file is)
+DAY_NAMES = [
+    "Monday", "Tuesday", "Wednesday", "Thursday",
+    "Friday", "Saturday", "Sunday",
+]
+MONTH_NAMES = [
+    "Unknown", "January", "February", "March", "April",
+    "May", "June", "July", "August", "September",
+    "October", "November", "December",
+]
 
 def day_graphics(medium_font, large_font):
-    """Format the day, date, and time info from time.localtime() for display.
-    Inputs are medium and large fonts.
+    """Build and return a display Group showing current day, date, and time.
+
+    Returns:
+        displayio.Group
     """
     text_group = displayio.Group()
 
-    ur_label = Label(medium_font) #  time text
-    ur_label.x = 220
-    ur_label.y = 25
-    ur_label.color = 0xFFFFFF
-    text_group.append(ur_label)
+    time_label = Label(medium_font)
+    time_label.x = 220
+    time_label.y = 25
+    time_label.color = 0xFFFFFF
+    text_group.append(time_label)
 
-    sub_label = Label(medium_font) # month, date, year text
-    sub_label.x = 60
-    sub_label.y = 140
-    sub_label.color = 0xFFFFFF
-    text_group.append(sub_label)
+    date_label = Label(medium_font)
+    date_label.x = 60
+    date_label.y = 140
+    date_label.color = 0xFFFFFF
+    text_group.append(date_label)
 
-    main_label = Label(large_font) # day of week
-    main_label.x = 80
-    main_label.y = 100
-    main_label.color = 0xFFFFFF
-    text_group.append(main_label)
+    day_label = Label(large_font)
+    day_label.x = 80
+    day_label.y = 100
+    day_label.color = 0xFFFFFF
+    text_group.append(day_label)
 
-    """Fetch the time.localtime(), parse it out and update the display text"""
-    day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    month_names = ["Unknown", "January", "Febuary", "March", "April", "May", "June", "July",
-        "August", "September", "October", "November", "December"]
     now = time.localtime()
-    day_str = day_names[now[6]]
-    date_str = str(now[2])
-    month_str = month_names[now[1]]
-    year_str = str(now[0])
-    day_date_str = month_str + " " + date_str + ", " + year_str
-    sub_label.text = day_date_str
-    main_label.text = day_str
-    hour = now[3]
+    day_label.text  = DAY_NAMES[now[6]]
+    date_label.text = MONTH_NAMES[now[1]] + " " + str(now[2]) + ", " + str(now[0])
+
+    hour   = now[3]
     minute = now[4]
-    format_str = "%d:%02d"
+    fmt = "%d:%02d"
     if hour >= 12:
         hour -= 12
-        format_str = format_str+" PM"
+        fmt += " PM"
     else:
-        format_str = format_str+" AM"
+        fmt += " AM"
     if hour == 0:
         hour = 12
-    time_str = format_str % (hour, minute)
-    ur_label.text = time_str
-    return(text_group)
+    time_label.text = fmt % (hour, minute)
+
+    return text_group

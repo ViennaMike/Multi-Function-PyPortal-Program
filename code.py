@@ -20,260 +20,325 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-# Version 1.3 3/18/2024 Covid removed awhile ago. This update adds pollen
-#     levels from the Google Maps Platform API.
-# Version 1.2 5/21/2020 Restructured and added control over ordering, so, for example,
-#     can interleave apps, such as time, weather, time, shower thoughts, time, S&P
-# Version 1.1 5/20/2020. Replaced Alpha Vantage as source for S&P 500 Data with
-# Finnhub, since AV stopped providing S&P index via their free API.
+# Version 2.0 5/22/2026
+#   Updated for CircuitPython 10.x: migrated secrets to settings.toml,
+#   replaced pyportal.fetch() with direct requests via pyportal.network.
+#   Fixed bugs: daily reset variable typo, RuntimeError string comparisons,
+#   uninitialized variables on first fetch failure, pollen bitmap file handle
+#   leak (now fixed in pollen_graphics.py). Removed dead code.
 
 """
-This is the main program for a multi-function Portal app.
-It includes current weather, day, date, time, S&P 500, pollen levels,
-and Shower Thoughts subreddit.
+Main program for a multi-function PyPortal app.
+Cycles through: day/date/time, weather, pollen, shower thoughts, S&P 500.
 """
+
+import os
 import sys
 import time
+import gc
 import microcontroller
 import board
-import supervisor
-import json
+
 from adafruit_pyportal import PyPortal
 from adafruit_bitmap_font import bitmap_font
-import adafruit_requests as requests
 
-cwd = ("/"+__file__).rsplit('/', 1)[0]  # the current working directory (where this file is)
+cwd = ("/" + __file__).rsplit("/", 1)[0]
 sys.path.append(cwd)
 
-import day_graphics          # pylint: disable=wrong-import-position
-import openweather_graphics  # pylint: disable=wrong-import-position
-import st_graphics           # pylint: disable=wrong-import-position
-import market_graphics       # pylint: disable=wrong-import-position
-import pollen_graphics       # pylint: disable=wrong-import-position
+import day_graphics
+import openweather_graphics
+import st_graphics
+import market_graphics
+import pollen_graphics
 
-linger = 5  # number of seconds to stay on each app
-long_linger = 10  # For apps with more text, like shower thoughts
+linger = 5       # seconds to display most apps
+long_linger = 10 # seconds for text-heavy apps (shower thoughts, pollen)
 
-# Get wifi details and more from a secrets.py file
-try:
-    from secrets import secrets
-except ImportError:
-    print("WiFi secrets are kept in secrets.py, please add them there!")
-    raise
+# API endpoints — credentials read from settings.toml
+LOCATION = "4791160"  # Vienna, VA (OpenWeatherMap city ID)
+WX_DATA_SOURCE = (
+    "https://api.openweathermap.org/data/2.5/weather?id=" + LOCATION
+    + "&appid=" + os.getenv("OPENWEATHER_TOKEN")
+)
+MARKET_DATA_SOURCE = "https://query2.finance.yahoo.com/v8/finance/chart/%5EGSPC?range=1d&interval=1d"
+MARKET_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) "
+                  "Chrome/111.0.0.0 Safari/537.36"
+}
+ST_DATA_SOURCE = "https://api.adviceslip.com/advice"
+POLLEN_DATA_SOURCE = (
+    "https://pollen.googleapis.com/v1/forecast:lookup?key="
+    + os.getenv("GOOGLE_KEY")
+    + "&location.longitude=-77.23&location.latitude=38.91&days=1&plantsDescription=False"
+)
 
-# Initiate the pyportal
-DATA_LOCATION = []
-pyportal = PyPortal(json_path=DATA_LOCATION,
-                    status_neopixel=board.NEOPIXEL,
-                    default_bg=0x000000)
+# Initialise PyPortal — WiFi credentials come from settings.toml automatically
+pyportal = PyPortal(status_neopixel=board.NEOPIXEL, default_bg=0x000000)
+pyportal.network.connect()
+requests = pyportal.network.requests
 
-# Get the fonts for all apps
-small_font = cwd+"/fonts/Arial-12.bdf"
-medium_font = cwd+"/fonts/Arial-16.bdf"
-large_font = cwd+"/fonts/Arial-Bold-24.bdf"
-small_font = bitmap_font.load_font(small_font)
-medium_font = bitmap_font.load_font(medium_font)
-large_font = bitmap_font.load_font(large_font)
+# Record how many groups the library owns in root_group (e.g. _bg_group).
+# The exception handler uses this as a floor so it never pops library-owned
+# groups — specifically _bg_group, which set_background() updates in-place
+# but never re-inserts if removed.
+BASE_GROUP_LEN = len(pyportal.root_group)
+
+# Load fonts once; pass references to each graphics module
+small_font  = bitmap_font.load_font(cwd + "/fonts/Arial-12.bdf")
+medium_font = bitmap_font.load_font(cwd + "/fonts/Arial-16.bdf")
+large_font  = bitmap_font.load_font(cwd + "/fonts/Arial-Bold-24.bdf")
 glyphs = b'0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-,.: '
 small_font.load_glyphs(glyphs)
 medium_font.load_glyphs(glyphs)
 large_font.load_glyphs(glyphs)
-large_font.load_glyphs(('°',))  # a non-ascii character we need for sure
+large_font.load_glyphs(("°",))
 
-# Weather info
-# Use cityname, country code where countrycode is ISO3166 format.
-# E.g. "New York, US" or "London, GB" OR use Location Code
-LOCATION = "4791160"  # Vienna, VA
-# Set up where we'll be fetching data from
-# You'll need to get a token from openweather.org, looks like 'b6907d289e10d714a6e88b30761fae22'
-WX_DATA_SOURCE = "https://api.openweathermap.org/data/2.5/weather?id="+LOCATION
-WX_DATA_SOURCE += "&appid="+secrets['openweather_token']
-
-# S&P 500 ("Market Data") info
-MARKET_DATA_SOURCE = "https://query2.finance.yahoo.com/v8/finance/chart/%5EGSPC"
-market_headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'}
-# PRICE_DATA_SOURCE = 'https://twelve-data1.p.rapidapi.com/price?symbol=GSPC'
-# CLOSE_DATA_SOURCE = 'https://twelve-data1.p.rapidapi.com/time_series?symbol=GSPC&interval=1day&outputsize=2'
-
-# Shower thoughts info
-ST_DATA_SOURCE = "https://www.reddit.com/r/Showerthoughts/new.json?sort=new&limit=1"
-
-# Pollen count info
-# pollen_key = secrets['google_key']
-pollen_key = secrets['google_key']
-POLLEN_DATA_SOURCE = "https://pollen.googleapis.com/v1/forecast:lookup" + '?key=' + pollen_key
-POLLEN_LOCATION_DATA = 'location.longitude=-77.23&location.latitude=38.91&days=1&plantsDescription=False'
-
-# Create exception for when Google doesn't return pollen response code (value not = 200)
-class InvalidPollenResponseCode(Exception):
-    pass
-
-def iso(a_time):
-    local_time = time.localtime(a_time)
-    year = str(local_time[0])
-    month = str(local_time[1])
-    if len(month) == 1:
-        month = '0'+month
-    day_of_month = str(local_time[2])
-    if len(day_of_month) == 1:
-        day_of_month = '0'+day_of_month
-    day_iso = year+'-'+month+'-'+day_of_month+'T00:00:00.000'
-    return day_iso
-
-def local(a_time):
-    local_time = time.localtime(a_time)
-    year = str(local_time[0])
-    month = str(local_time[1])
-    day_of_month = str(local_time[2])
-    day_local = month+'/'+day_of_month+'/'+year
-    return day_local
-
-# Loop through all the applications
-localtime_refresh = 0
-weather_refresh = 0
-st_refresh = 0
-market_refresh = 0
-pollen_refresh = 0
-
-# Set up an ordering list, so it's easy to add new apps (memory permitting) or change their order, or
-# repeat an app in the order
+# Display order: 0=time, 1=weather, 2=shower thoughts, 3=market, 4=pollen
+# Repeat index 0 to interleave time between other apps.
 order = [0, 1, 4, 0, 2, 0, 3]
 index = 0
-"""
-Occassionally, seemingly at randome, get errors like:
-"unable to get time from the internet -  Failed to request hostname"
-So put in an error counter, if happens 5 times, reset the device.
-"""
-error_counter = 0
+
+# Timestamps for rate-limiting each data source
+localtime_refresh = 0
+weather_refresh   = 0
+st_refresh        = 0
+market_refresh    = 0
+pollen_refresh    = 0
+
+last_reset_day = None  # tracks which calendar day the daily reset last fired
+error_counter  = 0     # consecutive time-sync failures; 3 in a row triggers reset
+
+# Cached data — initialised to None so first-cycle fetch failures are handled
+# gracefully (app is skipped rather than crashing with NameError)
+wx            = None
+thought       = None
+current_price = None
+prev_close    = None
+pollen_data   = None
+
 while True:
     try:
-        print('index = ',index, 'order[index] = ',order[index])
+        now = time.localtime()
+        if now[3] == 2 and now[4] == 13 and last_reset_day != now[2]:
+            print("Scheduled daily reset at 2:13 AM")
+            last_reset_day = now[2]
+            microcontroller.reset()
+
+        print("index =", index, "  app =", order[index])
+
+        # ------------------------------------------------------------------
+        # App 0 — Day / Date / Time
+        # ------------------------------------------------------------------
         if order[index] == 0:
-            # Day, date, and time. Only query the online time once per hour (and on first run).
-            pyportal.set_background(cwd+"/day_bitmap.bmp")
-            if (localtime_refresh == 0) or (time.monotonic() - localtime_refresh) > 3600:
-                print("Getting time from internet!")
+            gc.collect()
+            pyportal.set_background(cwd + "/day_bitmap.bmp")
+            if localtime_refresh == 0 or (time.monotonic() - localtime_refresh) > 3600:
+                print("Getting time from internet")
                 try:
                     pyportal.get_local_time()
                     localtime_refresh = time.monotonic()
-                    error_counter=0
-                except RuntimeError as e:
-                    print("unable to get time from the internet - ", e)
+                    error_counter = 0
+                except Exception as e:
+                    print("Time sync failed:", type(e).__name__, e)
                     localtime_refresh = 0
-                    error_counter+=1
+                    error_counter += 1
                     if error_counter >= 3:
-                        print("failed 3 times in a row, doing hardware reset")
+                        print("Time sync failed 3 times — resetting")
                         microcontroller.reset()
-            text_group = day_graphics.day_graphics(medium_font = medium_font, large_font = large_font)
-            pyportal.splash.append(text_group)
-            # Display for linger seconds, then empty the pyportal.splash group so it can be loaded with new display info
+            text_group = day_graphics.day_graphics(
+                medium_font=medium_font, large_font=large_font)
+            pyportal.root_group.append(text_group)
             time.sleep(linger)
+            pyportal.root_group.pop()
+            text_group = None
+
+        # ------------------------------------------------------------------
+        # App 1 — Weather (OpenWeatherMap, refreshes every 10 min)
+        # ------------------------------------------------------------------
         elif order[index] == 1:
-            # Display weather: only query the weather every 10 minutes (and on first run)."""
-            pyportal.set_background(cwd+"/wx_bitmap.bmp")
+            gc.collect()
+            pyportal.set_background(cwd + "/wx_bitmap.bmp")
             time.sleep(1)
-            if (weather_refresh == 0) or (time.monotonic() - weather_refresh) > 600:
-                weather_refresh = time.monotonic()
+            if weather_refresh == 0 or (time.monotonic() - weather_refresh) > 600:
+                print("Getting weather from internet")
                 try:
-                    wx = pyportal.fetch(WX_DATA_SOURCE)
-                except RuntimeError as e:
-                    if e == "Failed to request hostname":
-                        print("Error: ", e, "doing hardware reset")
+                    response = requests.get(WX_DATA_SOURCE)
+                    raw = response.json()
+                    response.close()
+                    del response
+                    # Extract only the fields we need, then free the full dict
+                    wx = {
+                        "icon":        raw["weather"][0]["icon"],
+                        "name":        raw["name"],
+                        "dt":          raw["dt"],
+                        "timezone":    raw["timezone"],
+                        "main_wx":     raw["weather"][0]["main"],
+                        "temp":        raw["main"]["temp"],
+                        "description": raw["weather"][0]["description"],
+                    }
+                    del raw
+                    gc.collect()
+                    weather_refresh = time.monotonic()
+                except Exception as e:
+                    if "Failed to request hostname" in str(e):
+                        print("Network error — resetting:", e)
                         microcontroller.reset()
-                print("Response is", wx)
-            text_group, background_file = openweather_graphics.wx_graphics(medium_font = medium_font,
-                                large_font = large_font, small_font = small_font, weather = wx)
-            pyportal.set_background(cwd+background_file)
-            pyportal.splash.append(text_group)
-            # Display for linger seconds
-            time.sleep(linger)
+                    print("Weather fetch error:", type(e).__name__, e)
+            if wx is not None:
+                text_group, background_file = openweather_graphics.wx_graphics(
+                    medium_font=medium_font, large_font=large_font,
+                    small_font=small_font, weather=wx)
+                gc.collect()
+                pyportal.set_background(cwd + background_file)
+                pyportal.root_group.append(text_group)
+                time.sleep(linger)
+                pyportal.root_group.pop()
+                text_group = None
+            else:
+                time.sleep(linger)
+
+        # ------------------------------------------------------------------
+        # App 2 — Advice slips (refreshes every 2 hours)
+        # ------------------------------------------------------------------
         elif order[index] == 2:
-            # Display Reddit Shower Thoughts. Only query shower thoughts every 5 minutes (and on first run)."""
-            pyportal.set_background(cwd+"/st_bitmap.bmp")
+            gc.collect()
+            pyportal.set_background(cwd + "/st_bitmap.bmp")
             time.sleep(1)
-            if (st_refresh == 0) or (time.monotonic() - st_refresh) > 300:
-                st_refresh = time.monotonic()
-                print("Getting shower thought from internet!")
+            if st_refresh == 0 or (time.monotonic() - st_refresh) > 7200:
+                print("Getting advice slip quote from internet")
                 try:
-                    st = pyportal.fetch(ST_DATA_SOURCE)
-                except RuntimeError as e:
-                    if e == "Failed to request hostname":
-                        print("Error: ", e, "Doing hardware reset")
-                        microcontroller.reset()
-                print("Response is", st)
-            # If shower thought longer than 140 characters, skip update, use old shower thought
-            st_json = json.loads(st)
-            thought = st_json['data']['children'][0]['data']['title']
-            print("shower thought: ", thought)
-            print("length: ", len(thought))
-            text_group = st_graphics.st_graphics(medium_font = medium_font, large_font = large_font,
-                        small_font = small_font, st = st)
-            pyportal.splash.append(text_group)
-            # Display for long_linger seconds
-            time.sleep(long_linger)
+                    response = requests.get(ST_DATA_SOURCE)
+                    print("Status:", response.status_code)
+                    st_json = response.json()
+                    response.close()
+                    del response
+                    st_refresh = time.monotonic()
+                    new_thought = st_json["slip"]["advice"]
+                    print("new thought: ", new_thought)
+                    del st_json
+                    if len(new_thought) <= 140:
+                        thought = new_thought
+                    elif thought is None:
+                        # First run and entry is too long — use fallback
+                        thought = "Brevity is the soul of wit. (William Shakespeare)"
+                    # else: keep the previously cached thought
+                except Exception as e:
+                    print("advice slip fetch error:", type(e).__name__, e)
+                    st_refresh = 0  # Force retry next cycle
+                    # Don't reset — let the main loop's error handler deal with it
+            if thought is not None:
+                print("advice slip:", thought)
+                text_group = st_graphics.st_graphics(
+                    medium_font=medium_font, large_font=large_font,
+                    small_font=small_font, thought=thought)
+                pyportal.root_group.append(text_group)
+                time.sleep(long_linger)
+                pyportal.root_group.pop()
+                text_group = None
+            else:
+                time.sleep(long_linger)
+
+        # ------------------------------------------------------------------
+        # App 3 — S&P 500 (Yahoo Finance, refreshes every 15 min)
+        # ------------------------------------------------------------------
         elif order[index] == 3:
-            """Display S&P 500. Only query the S&P every 15 minutes (and on first run)."""
-            pyportal.set_background(cwd+"/market_bitmap.bmp")
+            gc.collect()
+            pyportal.set_background(cwd + "/market_bitmap.bmp")
             time.sleep(1)
-            if (market_refresh == 0) or (time.monotonic() - market_refresh) > 900:
-                market_refresh = time.monotonic()
-                print("Getting S&P 500 from internet!")
+            if market_refresh == 0 or (time.monotonic() - market_refresh) > 900:
+                print("Getting S&P 500 from internet")
                 try:
-                    market = requests.get(MARKET_DATA_SOURCE, headers=market_headers)
-                    # print(stock_response.headers)
-                    market_data = market.json()
-                    market_meta = market_data["chart"]["result"][0]["meta"]
-                    prev_close = market_meta["previousClose"]
-                    current_price = market_meta["regularMarketPrice"]
-                    print(prev_close)
-                    print(current_price)
-                except RuntimeError as e:
-                    if e == "Failed to request hostname":
-                        print("Error: ", e, "doing hardware reset")
+                    response = requests.get(MARKET_DATA_SOURCE, headers=MARKET_HEADERS)
+                    market_data = response.json()
+                    response.close()
+                    del response
+                    market_refresh = time.monotonic()
+                    meta = market_data["chart"]["result"][0]["meta"]
+                    current_price = meta["regularMarketPrice"]
+                    prev_close    = meta["chartPreviousClose"]
+                    del market_data, meta
+                    print("S&P price:", current_price, " prev close:", prev_close)
+                except Exception as e:
+                    if "Failed to request hostname" in str(e):
+                        print("Network error — resetting:", e)
                         microcontroller.reset()
-                if current_price == '' or prev_close == '':
-                    raise ValueError('empty string returned')
-            text_group, background_file = market_graphics.market_graphics(medium_font = medium_font, large_font = large_font,
-                                    market = current_price, market2 = prev_close)
-            pyportal.set_background(cwd+background_file)
-            pyportal.splash.append(text_group)
-            # Display for linger seconds, then empty the pyportal.splash group so it can be loaded with new display info
-            time.sleep(linger)
+                    print("Market fetch error:", type(e).__name__, e)
+            if current_price is not None and prev_close is not None:
+                text_group, background_file = market_graphics.market_graphics(
+                    medium_font=medium_font, large_font=large_font,
+                    market=current_price, market2=prev_close)
+                gc.collect()
+                pyportal.set_background(cwd + background_file)
+                pyportal.root_group.append(text_group)
+                time.sleep(linger)
+                pyportal.root_group.pop()
+                text_group = None
+            else:
+                time.sleep(linger)
+
+        # ------------------------------------------------------------------
+        # App 4 — Pollen (Google Maps Pollen API, refreshes every 4 hr)
+        # ------------------------------------------------------------------
         elif order[index] == 4:
-            """Display Universal Pollen Index for trees, grass, and weeds, if available."""
-            pyportal.set_background(cwd+"/pollen_cover.bmp")
+            gc.collect()
+            pyportal.set_background(cwd + "/pollen_cover.bmp")
             time.sleep(1)
-            if ((time.monotonic() - pollen_refresh) > 14400) or (pollen_refresh == 0):
-                pollen_refresh = time.monotonic()
-                print("Getting Pollen Data from internet!")
+            if pollen_refresh == 0 or (time.monotonic() - pollen_refresh) > 14400:
+                print("Getting pollen data from internet")
                 try:
-                    POLLEN_DATA_SOURCE = POLLEN_DATA_SOURCE + '&'+POLLEN_LOCATION_DATA
-                    print("pollen data source: ", POLLEN_DATA_SOURCE)
-                    pollen_response = requests.get(POLLEN_DATA_SOURCE)
-                    print ("pollen status code: ", pollen_response.status_code)
-                    print("pollen response header: ", pollen_response.headers)
-                    print("pollen json body: ", pollen_response.json())
-                    if pollen_response.status_code != 200:
-                        pollen_refresh = 14340
-                        bad_pollen_data = True
-                        raise ValueError("bad http status code returned")
-                except RuntimeError as e:
-                    if e == "Failed to request hostname":
-                        print("Error: ", e, "doing hardware reset")
+                    response = requests.get(POLLEN_DATA_SOURCE)
+                    if response.status_code != 200:
+                        print("Bad pollen HTTP status:", response.status_code)
+                        response.close()
+                        del response
+                        pollen_refresh = 0
+                    else:
+                        pollen_json = response.json()
+                        response.close()
+                        del response
+                        pollen_refresh = time.monotonic()
+                        # Extract only the 3 index values, then free the full dict
+                        tree_val = weed_val = grass_val = "N/A"
+                        for item in pollen_json["dailyInfo"][0]["pollenTypeInfo"]:
+                            name = item["displayName"]
+                            val = item["indexInfo"]["value"] if "indexInfo" in item else "N/A"
+                            if name == "Tree":
+                                tree_val = val
+                            elif name == "Weed":
+                                weed_val = val
+                            elif name == "Grass":
+                                grass_val = val
+                        pollen_data = {"tree": tree_val, "weed": weed_val, "grass": grass_val}
+                        del pollen_json, tree_val, weed_val, grass_val
+                        gc.collect()
+                except Exception as e:
+                    if "Failed to request hostname" in str(e):
+                        print("Network error — resetting:", e)
                         microcontroller.reset()
-            pollen_data = pollen_response.json()['dailyInfo'][0]['pollenTypeInfo']
-            text_group, background_file = pollen_graphics.pollen_graphics(pollen_data)
-            print('pollen text_group: ', text_group)
-            pyportal.set_background(cwd+background_file)
-            pyportal.splash.append(text_group)
-            # Display for long_linger seconds
-            time.sleep(long_linger)
+                    print("Pollen fetch error:", type(e).__name__, e)
+            if pollen_data is not None:
+                text_group, background_file = pollen_graphics.pollen_graphics(
+                    pollen_data["tree"], pollen_data["weed"], pollen_data["grass"])
+                gc.collect()
+                pyportal.set_background(cwd + background_file)
+                pyportal.root_group.append(text_group)
+                time.sleep(long_linger)
+                pyportal.root_group.pop()
+                text_group = None
+            else:
+                time.sleep(long_linger)
+
         else:
             raise ValueError("app index set to invalid value")
-        # Empty the pyportal.splash group so it can be loaded with new display info
-        pyportal.splash.pop()
-        index = (index+1)%(len(order))
+
+        index = (index + 1) % len(order)
+
     except Exception as e:
-        print("Some error occured,  skipping this iteration! -", e)
-        index = (index+1)%(len(order))
-        continue
+        print("Error in main loop — skipping iteration:", e)
+        while len(pyportal.root_group) > BASE_GROUP_LEN:
+            pyportal.root_group.pop()
+        index = (index + 1) % len(order)
+
+    gc.collect()
+    print("Free memory:", gc.mem_free())

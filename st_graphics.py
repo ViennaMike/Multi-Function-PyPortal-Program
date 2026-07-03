@@ -20,53 +20,45 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import time
-import json
 import displayio
 from adafruit_display_text.label import Label
-from adafruit_bitmap_font import bitmap_font
 
-# cwd = ("/"+__file__).rsplit('/', 1)[0] # the current working directory (where this file is)
+def st_graphics(medium_font, large_font, small_font, thought):
+    """Build and return a display Group that word-wraps an advice slip string.
 
-def st_graphics(medium_font, large_font, small_font, st):
-    """Take input JSON pulled from the Shower Thoughts subreddit API, extract the title field,
-    and format for display. Inputs are medium, large, and small fonts and the JSON input from
-    the API
+    Args:
+        thought: plain string (already extracted from the API response).
+    Returns:
+        displayio.Group
     """
     text_group = displayio.Group()
-    st = json.loads(st)
-    thought = st['data']['children'][0]['data']['title']
-    print(thought)
-    # Split into multiple lines (based on pyportal's wrap_nicely method)
-    # Use smaller font if needed to fit
-    print("length: ",len(thought))
-    if len(thought) > 140:
-#         max_chars = 38
-#         font = small_font
-        print("current thought too long")
-        thought = "Brevity is the soul of wit. (William Shakespeare)"
-#     else:
-    max_chars = 28
+
+    print("Advice slip:", thought, "  length:", len(thought))
+
     font = medium_font
-    print("using medium font")
-    words = thought.split(' ')
-    the_lines = []
-    the_line = ""
-    for w in words:
-        if len(the_line+' '+w) <= max_chars:
-            the_line += ' '+w
+    max_chars = 28
+
+    words = thought.split(" ")
+    lines = []
+    line = ""
+    for word in words:
+        if len(line + " " + word) <= max_chars:
+            line += " " + word
         else:
-            the_lines.append(the_line)
-            the_line = ''+w
-    if the_line:      # last line remaining
-        the_lines.append(the_line)
-    # remove first space from first line:
-    the_lines[0] = the_lines[0][1:]
-    for idx, line in enumerate(the_lines):
-        thought_text = Label(font, line_spacing = 1.2)
-        thought_text.x = 15
-        thought_text.color = 0xFFFFFF
-        thought_text.y = 110 + (idx * 24)
-        thought_text.text = line
-        text_group.append(thought_text)
-    return(text_group)
+            lines.append(line)
+            line = word
+    if line:
+        lines.append(line)
+
+    # Strip the leading space introduced by the " " + word join on the first line
+    lines[0] = lines[0].lstrip()
+
+    for idx, line in enumerate(lines):
+        label = Label(font, line_spacing=1.2)
+        label.x = 15
+        label.y = 110 + (idx * 24)
+        label.color = 0xFFFFFF
+        label.text = line
+        text_group.append(label)
+
+    return text_group

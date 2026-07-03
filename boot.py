@@ -1,2 +1,2 @@
-import supervisor
-supervisor.disable_autoreload()
+# import supervisor
+# supervisor.runtime.autoreload = False

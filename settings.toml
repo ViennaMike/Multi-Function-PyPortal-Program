@@ -1,0 +1,10 @@
+# CircuitPython 10.x configuration — replaces secrets.py
+# WiFi credentials are read automatically by the PyPortal network layer.
+# API keys are read via os.getenv() in code.py.
+
+CIRCUITPY_WIFI_SSID = "YOUR WIFI SSID HERE"
+CIRCUITPY_WIFI_PASSWORD = "YOUR WIFI PASSWORD HERE"
+CIRCUITPY_TIMEZONE = "YOUR TIMEZONE HERE"
+
+OPENWEATHER_TOKEN = "YOUR OPENWEATHER TOKEN"
+GOOGLE_KEY = "YOUR GOOGLE MAPS PLATFORM API KEY"

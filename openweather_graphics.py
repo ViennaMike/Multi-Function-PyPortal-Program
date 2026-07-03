@@ -1,4 +1,3 @@
-
 # The MIT License (MIT)
 #
 # Copyright (c) 2019 Michael McGurrin
@@ -20,24 +19,26 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
+
 import time
-import json
 import displayio
 from adafruit_display_text.label import Label
-from adafruit_bitmap_font import bitmap_font
 
-cwd = ("/"+__file__).rsplit('/', 1)[0] # the current working directory (where this file is)
+cwd = ("/" + __file__).rsplit("/", 1)[0]
+
 def wx_graphics(medium_font, large_font, small_font, weather):
-    """Take input JSON pulled from the openweather API, extract the relevent data,
-    and format for display. Inputs are medium, large, and small fonts and the JSON input from
-    the API
+    """Build and return a display Group from a parsed OpenWeatherMap JSON dict.
+
+    Args:
+        weather: dict already parsed from the OpenWeatherMap API response.
+    Returns:
+        (displayio.Group, background_file_path)
     """
     text_group = displayio.Group()
-    weather = json.loads(weather)
 
     time_text = Label(medium_font)
     time_text.x = 200
-    time_text.y = 25 # default was 12
+    time_text.y = 25
     time_text.color = 0xFFFFFF
     text_group.append(time_text)
 
@@ -59,44 +60,38 @@ def wx_graphics(medium_font, large_font, small_font, weather):
     description_text.color = 0xFFFFFF
     text_group.append(description_text)
 
-    # set the background based on the weather
-    weather_icon = weather['weather'][0]['icon']
-    background_file = "/icons/"+weather_icon+".bmp"
+    background_file = "/icons/" + weather["icon"] + ".bmp"
 
-    # city_name =  weather['name'] + ", " + weather['sys']['country']
-    city_name =  weather['name']
-    print(city_name)
-    city_text = Label(medium_font, text=city_name)
+    city_text = Label(medium_font, text=weather["name"])
     city_text.x = 10
-    city_text.y = 25 # default was 12
+    city_text.y = 25
     city_text.color = 0xFFFFFF
     text_group.append(city_text)
+    print(weather["name"])
 
-    now_cast_time = time.localtime(weather['dt']+weather['timezone'])
-    hour = now_cast_time[3]
+    now_cast_time = time.localtime(weather["dt"] + weather["timezone"])
+    hour   = now_cast_time[3]
     minute = now_cast_time[4]
-    format_str = "%d:%02d"
+    fmt = "%d:%02d"
     if hour >= 12:
         hour -= 12
-        format_str = format_str+" PM"
+        fmt += " PM"
     else:
-        format_str = format_str+" AM"
+        fmt += " AM"
     if hour == 0:
         hour = 12
-    time_str = "("+format_str % (hour, minute)+")"
-    time_text.text = time_str
+    time_text.text = "(" + fmt % (hour, minute) + ")"
 
-    main_wx = weather['weather'][0]['main']
-    print(main_wx)
-    main_text.text = main_wx
+    print(weather["main_wx"])
+    main_text.text = weather["main_wx"]
 
-    temperature = weather['main']['temp'] - 273.15 # its...in kelvin
+    temperature = weather["temp"] - 273.15  # Kelvin → Celsius → Fahrenheit
     print(temperature)
     temp_text.text = "%d °F" % ((temperature * 9 / 5) + 32)
 
-    description = weather['weather'][0]['description']
+    description = weather["description"]
     description = description[0].upper() + description[1:]
     print(description)
     description_text.text = description
-    # example: "thunderstorm with heavy drizzle"
+
     return (text_group, background_file)

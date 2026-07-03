@@ -20,23 +20,20 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-# Version 1.1, 5/21/2020. Revised processing of json to match format of new feed
-
-import time
-import json
 import displayio
 from adafruit_display_text.label import Label
-from adafruit_bitmap_font import bitmap_font
 
-cwd = ("/"+__file__).rsplit('/', 1)[0] # the current working directory (where this file is)
 def market_graphics(medium_font, large_font, market, market2):
-    """Take input JSON pulled from Yahoo Finance, extract the relevent data,
-    and format for display. Inputs are medium and large fonts and the JSON input from
-    the API
+    """Build and return a display Group showing S&P 500 price and daily change.
+
+    Args:
+        market:  current price (float or numeric string)
+        market2: previous close (float or numeric string)
+    Returns:
+        (displayio.Group, background_file_path)
     """
     text_group = displayio.Group()
-    print("graphics:", market)
-    print("grapics:", market2)
+
     main_text = Label(large_font)
     main_text.x = 40
     main_text.y = 80
@@ -47,24 +44,24 @@ def market_graphics(medium_font, large_font, market, market2):
     sub_text.x = 30
     sub_text.y = 120
     text_group.append(sub_text)
-    print
-    price = float(market)
+
+    price      = float(market)
     prev_close = float(market2)
-    change = round(price - prev_close, 2)
-    percent = round((100 * change / prev_close), 2)
-    print(price, change, percent)
+    change     = round(price - prev_close, 2)
+    percent    = round((100 * change / prev_close), 2)
+    print("S&P price:", price, " change:", change, " pct:", percent)
 
     main_text.text = str(price)
-    sub_text.text = str(change) + '  (' + str(percent) + '%)'
+    sub_text.text  = str(change) + "  (" + str(percent) + "%)"
 
-    # set the background and color of change
     if percent > 0.1:
         background_file = "/icons/green_up.bmp"
-        sub_text.color = 0x00FF00
+        sub_text.color  = 0x00FF00
     elif percent < -0.1:
         background_file = "/icons/red_down.bmp"
-        sub_text.color = 0xFF0000
+        sub_text.color  = 0xFF0000
     else:
         background_file = "/icons/neutral.bmp"
-        sub_text.color = 0xFFD600
+        sub_text.color  = 0xFFD600
+
     return (text_group, background_file)

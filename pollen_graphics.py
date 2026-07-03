@@ -20,73 +20,47 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-# Version 1.1, 5/21/2020. Revised processing of json to match format of new feed
-
-import time
-import json
 import displayio
-from adafruit_display_text.label import Label
-from adafruit_bitmap_font import bitmap_font
 
-cwd = ("/"+__file__).rsplit('/', 1)[0] # the current working directory (where this file is)
-def pollen_graphics(pollen_data):
-    """Take input JSON pulled from google map pollen API, extract the relevent data,
-    and format for display. Inputs are medium and large fonts and the JSON input from
-    the API
+VALUE_GRAPHICS = {
+    "N/A": "/icons/NotAvailable.bmp",
+    0:     "/icons/None.bmp",
+    1:     "/icons/VeryLow.bmp",
+    2:     "/icons/Low.bmp",
+    3:     "/icons/Moderate.bmp",
+    4:     "/icons/High.bmp",
+    5:     "/icons/VeryHigh.bmp",
+}
+
+def pollen_graphics(tree, weed, grass):
+    """Build and return a display Group for tree, weed, and grass pollen levels.
+
+    Args:
+        tree:  tree pollen index value (int 0-5 or "N/A")
+        weed:  weed pollen index value (int 0-5 or "N/A")
+        grass: grass pollen index value (int 0-5 or "N/A")
+    Returns:
+        (displayio.Group, background_file_path)
     """
-    value_graphics = {
-        'N/A': "/icons/NotAvailable.bmp",
-        1: "/icons/Low.bmp",
-        2: "/icons/Moderate.bmp",
-        3: "/icons/High.bmp",
-        4: "/icons/VeryHigh.bmp",
-        5: "/icons/Extreme.bmp",
-        }
-    # Extract the values from json for trees, weeds, and grasses
-    # Set defaults before the loop
-    tree_graphic = value_graphics['N/A']
-    weed_graphic = value_graphics['N/A']
-    grass_graphic = value_graphics['N/A']
+    tree_graphic  = VALUE_GRAPHICS.get(tree,  VALUE_GRAPHICS["N/A"])
+    weed_graphic  = VALUE_GRAPHICS.get(weed,  VALUE_GRAPHICS["N/A"])
+    grass_graphic = VALUE_GRAPHICS.get(grass, VALUE_GRAPHICS["N/A"])
 
-    for item in pollen_data:
-        print("item displayName:", item['displayName'])
-        if item['displayName'] == 'Tree':
-            if 'indexInfo' in item:
-                tree_graphic = value_graphics[item['indexInfo']['value']]
-            else:
-                tree_graphic = value_graphics['N/A']
-        elif item['displayName'] == 'Weed':
-            if 'IndexInfo' in item:
-                weed_graphic = value_graphics[item['indexInfo']['value']]
-            else:
-                weed_graphic = value_graphics['N/A']
-        elif item['displayName'] == 'Grass':
-            if 'indexInfo' in item:
-                grass_graphic = value_graphics[item['indexInfo']['value']]
-            else:
-                grass_graphic = value_graphics['N/A']
-    print("selected graphics: ", tree_graphic, weed_graphic, grass_graphic)
+    print("Pollen graphics:", tree_graphic, weed_graphic, grass_graphic)
+
     pollen_group = displayio.Group()
-    tree_file = open(tree_graphic, "rb")
-    tree_bitmap = displayio.OnDiskBitmap(tree_file)
-    tree_tilegrid = displayio.TileGrid(tree_bitmap, pixel_shader=tree_bitmap.pixel_shader)
-    tree_tilegrid.x = 80
-    tree_tilegrid.y = 55
-    pollen_group.append(tree_tilegrid)
 
-    weed_file = open(weed_graphic, "rb")
-    weed_bitmap = displayio.OnDiskBitmap(weed_file)
-    weed_tilegrid = displayio.TileGrid(weed_bitmap, pixel_shader=weed_bitmap.pixel_shader)
-    weed_tilegrid.x = 80
-    weed_tilegrid.y = 115
-    pollen_group.append(weed_tilegrid)
+    # CircuitPython 9.2+ accepts a path string directly — no manual open() needed,
+    # which prevents file-handle accumulation across display cycles.
+    for path, x_pos, y_pos in [
+        (tree_graphic,  80,  55),
+        (weed_graphic,  80, 115),
+        (grass_graphic, 80, 175),
+    ]:
+        bitmap    = displayio.OnDiskBitmap(path)
+        tile_grid = displayio.TileGrid(bitmap, pixel_shader=bitmap.pixel_shader)
+        tile_grid.x = x_pos
+        tile_grid.y = y_pos
+        pollen_group.append(tile_grid)
 
-    grass_file = open(grass_graphic, "rb")
-    grass_bitmap = displayio.OnDiskBitmap(grass_file)
-    grass_tilegrid = displayio.TileGrid(grass_bitmap, pixel_shader=grass_bitmap.pixel_shader)
-    grass_tilegrid.x = 80
-    grass_tilegrid.y = 175
-    pollen_group.append(grass_tilegrid)
-
-    background_file = "/icons/pollen_background.bmp"
-    return (pollen_group, background_file)
+    return (pollen_group, "/icons/pollen_background.bmp")
