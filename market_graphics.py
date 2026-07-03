@@ -29,27 +29,27 @@ from adafruit_display_text.label import Label
 from adafruit_bitmap_font import bitmap_font
 
 cwd = ("/"+__file__).rsplit('/', 1)[0] # the current working directory (where this file is)
-def market_graphics(medium_font, large_font, market):
-    """Take input JSON pulled from the Alpha Vantage API, extract the relevent data,
+def market_graphics(medium_font, large_font, market, market2):
+    """Take input JSON pulled from Yahoo Finance, extract the relevent data,
     and format for display. Inputs are medium and large fonts and the JSON input from
     the API
     """
-    text_group = displayio.Group(max_size = 2)
-    market = json.loads(market)
-
-    main_text = Label(large_font, max_glyphs=20)
+    text_group = displayio.Group()
+    print("graphics:", market)
+    print("grapics:", market2)
+    main_text = Label(large_font)
     main_text.x = 40
     main_text.y = 80
     main_text.color = 0xFFFFFF
     text_group.append(main_text)
 
-    sub_text = Label(medium_font, max_glyphs=20)
+    sub_text = Label(medium_font)
     sub_text.x = 30
     sub_text.y = 120
     text_group.append(sub_text)
-
-    price = market['c'] * 10 + 7   # Convert SPY ETF to S&P (about 10x)
-    prev_close = market['pc'] * 10 + 7  # Convert SPY ETF to S&P (about 10x)
+    print
+    price = float(market)
+    prev_close = float(market2)
     change = round(price - prev_close, 2)
     percent = round((100 * change / prev_close), 2)
     print(price, change, percent)
@@ -58,10 +58,13 @@ def market_graphics(medium_font, large_font, market):
     sub_text.text = str(change) + '  (' + str(percent) + '%)'
 
     # set the background and color of change
-    if change >= 0:
+    if percent > 0.1:
         background_file = "/icons/green_up.bmp"
         sub_text.color = 0x00FF00
-    else:
+    elif percent < -0.1:
         background_file = "/icons/red_down.bmp"
         sub_text.color = 0xFF0000
+    else:
+        background_file = "/icons/neutral.bmp"
+        sub_text.color = 0xFFD600
     return (text_group, background_file)

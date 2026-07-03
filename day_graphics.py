@@ -32,21 +32,21 @@ def day_graphics(medium_font, large_font):
     """Format the day, date, and time info from time.localtime() for display.
     Inputs are medium and large fonts.
     """
-    text_group = displayio.Group(max_size = 5)
+    text_group = displayio.Group()
 
-    ur_label = Label(medium_font, max_glyphs=8) #  time text
+    ur_label = Label(medium_font) #  time text
     ur_label.x = 220
     ur_label.y = 25
     ur_label.color = 0xFFFFFF
     text_group.append(ur_label)
 
-    sub_label = Label(medium_font, max_glyphs=18) # month, date, year text
+    sub_label = Label(medium_font) # month, date, year text
     sub_label.x = 60
     sub_label.y = 140
     sub_label.color = 0xFFFFFF
     text_group.append(sub_label)
 
-    main_label = Label(large_font, max_glyphs=9) # day of week
+    main_label = Label(large_font) # day of week
     main_label.x = 80
     main_label.y = 100
     main_label.color = 0xFFFFFF

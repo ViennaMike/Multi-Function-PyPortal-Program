@@ -7,8 +7,6 @@ secrets = {
     'ssid' : 'WIFI SSID NAME HERE',             # Keep the two '' quotes around the name
     'password' : 'WIFI PASSWORD HERE',         # Keep the two '' quotes around password
     'timezone' : "YOUR TIMEZONE HERE",  # http://worldtimeapi.org/timezones
-    'aio_username' : 'YOUR USERNAME FOR ADAFRUIT AIO', #See learning guide at https://learn.adafruit.com/welcome-to-adafruit-io
-    'aio_key' : 'YOUR KEY FOR AIO',
     'openweather_token' : 'YOUR OPENWEATHER TOKEN',   # see https://openweathermap.org/api
-    'finnhub_token' : 'YOUR FinnHub token'   #https://finnhub.io/
+    'google_key' : 'YOUR GOOGLE MAPS PLATFORM API KEY'   # Used for the Pollen API - see https://developers.google.com/maps/documentation/pollen
     }

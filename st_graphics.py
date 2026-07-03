@@ -33,7 +33,7 @@ def st_graphics(medium_font, large_font, small_font, st):
     and format for display. Inputs are medium, large, and small fonts and the JSON input from
     the API
     """
-    text_group = displayio.Group(max_size = 6)
+    text_group = displayio.Group()
     st = json.loads(st)
     thought = st['data']['children'][0]['data']['title']
     print(thought)
@@ -41,15 +41,14 @@ def st_graphics(medium_font, large_font, small_font, st):
     # Use smaller font if needed to fit
     print("length: ",len(thought))
     if len(thought) > 140:
-        max_chars = 38
-        font = small_font
-        max_glyphs = 38
-        print("using small font")
-    else:
-        max_chars = 28
-        font = medium_font
-        max_glyphs = 28
-        print("using medium font")
+#         max_chars = 38
+#         font = small_font
+        print("current thought too long")
+        thought = "Brevity is the soul of wit. (William Shakespeare)"
+#     else:
+    max_chars = 28
+    font = medium_font
+    print("using medium font")
     words = thought.split(' ')
     the_lines = []
     the_line = ""
@@ -64,7 +63,7 @@ def st_graphics(medium_font, large_font, small_font, st):
     # remove first space from first line:
     the_lines[0] = the_lines[0][1:]
     for idx, line in enumerate(the_lines):
-        thought_text = Label(font, line_spacing = 1.2, max_glyphs = max_glyphs)
+        thought_text = Label(font, line_spacing = 1.2)
         thought_text.x = 15
         thought_text.color = 0xFFFFFF
         thought_text.y = 110 + (idx * 24)

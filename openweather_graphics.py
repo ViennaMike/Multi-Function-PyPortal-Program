@@ -32,28 +32,28 @@ def wx_graphics(medium_font, large_font, small_font, weather):
     and format for display. Inputs are medium, large, and small fonts and the JSON input from
     the API
     """
-    text_group = displayio.Group(max_size = 5)
+    text_group = displayio.Group()
     weather = json.loads(weather)
 
-    time_text = Label(medium_font, max_glyphs=11)
+    time_text = Label(medium_font)
     time_text.x = 200
     time_text.y = 25 # default was 12
     time_text.color = 0xFFFFFF
     text_group.append(time_text)
 
-    temp_text = Label(large_font, max_glyphs=6)
+    temp_text = Label(large_font)
     temp_text.x = 200
     temp_text.y = 195
     temp_text.color = 0xFFFFFF
     text_group.append(temp_text)
 
-    main_text = Label(large_font, max_glyphs=20)
+    main_text = Label(large_font)
     main_text.x = 10
     main_text.y = 195
     main_text.color = 0xFFFFFF
     text_group.append(main_text)
 
-    description_text = Label(small_font, max_glyphs=60)
+    description_text = Label(small_font)
     description_text.x = 10
     description_text.y = 225
     description_text.color = 0xFFFFFF
